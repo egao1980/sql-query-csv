@@ -20,8 +20,9 @@
 (defun make-csv-dialect (&key (coerce-numbers t) catalog)
   (let ((d (make-instance 'csv-dialect :coerce-numbers coerce-numbers)))
     (when catalog
-      (loop for (name source . rest) on catalog by #'cddr
-            do (apply #'register-csv-table d name source rest)))
+      ;; Alternating NAME source [NAME source …] — no per-table keyword options here.
+      (loop for (name source) on catalog by #'cddr
+            do (register-csv-table d name source)))
     d))
 
 (defun csv-catalog (&rest plist)

@@ -2,8 +2,6 @@
 
 Compile [`sql-query`](https://github.com/egao1980/sql-query) **SELECT** ASTs to **Lisp** that runs over CSV tables (in-memory plists or files).
 
-Not a SQL-string dialect — parallel to `compile-sql`:
-
 | API | Target |
 |-----|--------|
 | `sql-query:compile-sql` | SQL text + params |
@@ -11,59 +9,58 @@ Not a SQL-string dialect — parallel to `compile-sql`:
 | `sql-query-csv:compile-query-form` | inspectable `(lambda () …)` form |
 | `sql-query-csv:query-csv` | compile + run |
 
-## Wave-1
+## Supported
 
-Single-table `SELECT` · `WHERE` (`= < > AND OR LIKE IN BETWEEN IS NULL` + arith) · `ORDER BY` · `LIMIT`/`OFFSET` · column projection / `label`.
+- single / multi-table `SELECT` with **`JOIN` / `LEFT JOIN` / `RIGHT JOIN` / `CROSS JOIN`**
+- `WHERE`, `GROUP BY`, `HAVING`, aggregates `COUNT` / `SUM` / `AVG` / `MIN` / `MAX`
+- `DISTINCT` (not `DISTINCT ON`)
+- `ORDER BY`, `LIMIT` / `OFFSET`, projection / `label`
+- table-qualified columns (`:users.id`)
 
-No JOIN / GROUP BY / DISTINCT / CTE / DML.
+Not yet: `FULL OUTER` / `NATURAL` join, CTE, DML, window functions.
 
 ## Example
 
-Sample data: [`examples/users.csv`](examples/users.csv). Runnable demo:
-
 ```bash
-# from repo root; sql-query on CL_SOURCE_REGISTRY
 ros -l examples/demo.lisp -q
 ```
 
+Data: [`examples/users.csv`](examples/users.csv), [`examples/orders.csv`](examples/orders.csv).
+
 ```lisp
 (asdf:load-system "sql-query-csv")
-
-(use-package :sql-query)
-(use-package :sql-query-csv)
+(use-package '(:sql-query :sql-query-csv))
 
 (defparameter *d*
-  (csv-catalog :users
-               (merge-pathnames "examples/users.csv"
-                                (asdf:system-source-directory "sql-query-csv"))))
+  (csv-catalog
+   :users (merge-pathnames "examples/users.csv"
+                           (asdf:system-source-directory "sql-query-csv"))
+   :orders (merge-pathnames "examples/orders.csv"
+                            (asdf:system-source-directory "sql-query-csv"))))
 
-(defparameter *stmt*
-  (select
-   (columns :id :name (label :score :pts))
-   (from :users)
-   (where (sql-and (:= :active 1)
-                   (sql-or (sql-like :city "London")
-                           (:> :score 90))))
-   (order-by '(:score :desc))
-   (limit 3)))
+;; DISTINCT
+(query-csv (select (distinct) (columns :city) (from :users) (order-by :city))
+           :dialect *d*)
 
+;; GROUP BY
+(query-csv
+ (select (columns :city (label (count :*) :n) (label (sql-func :sum :score) :total))
+         (from :users)
+         (where (:= :active 1))
+         (group-by :city)
+         (having (:> (count :*) 1)))
+ :dialect *d*)
+
+;; JOIN
+(query-csv
+ (select (columns :users.name :orders.item :orders.qty)
+         (from :users)
+         (join :orders (on (:= :users.id :orders.uid)))
+         (order-by :users.name))
+ :dialect *d*)
+
+;; inspect emitted Lisp
 (compile-query-form *stmt* :dialect *d*)
-;; => (LAMBDA ()
-;;      (LET* ((TABLE …) (ROWS …) (PRED …) (PROJ …) (ORD …))
-;;        …))
-
-(query-csv *stmt* :dialect *d*)
-;; => ((:ID 2 :NAME "grace" :PTS 95)
-;;     (:ID 1 :NAME "ada" :PTS 90)
-;;     (:ID 4 :NAME "barbara" :PTS 88))
-```
-
-In-memory catalog (no file):
-
-```lisp
-(csv-catalog :users
-  '((:id 1 :name "ada" :active 1 :score 90)
-    (:id 2 :name "grace" :active 1 :score 95)))
 ```
 
 ## Tests
@@ -71,8 +68,6 @@ In-memory catalog (no file):
 ```bash
 ros -e '(asdf:test-system "sql-query-csv")' -q
 ```
-
-Covers filter/project, ORDER/LIMIT/OFFSET, LIKE/BETWEEN/IN/OR/IS NULL, arith, bindparam/label, emitted form, `examples/users.csv` (same query as the demo), quoted CSV fields, unknown table, unsupported JOIN.
 
 ## License
 

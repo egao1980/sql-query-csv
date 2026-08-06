@@ -165,11 +165,3 @@
     (ok (signals (query-csv (select (columns :id) (from :missing))
                             :dialect d)
                  'sql-query-error))))
-
-(deftest join-unsupported
-  (ok (signals (query-csv
-                (select (columns :id)
-                        (from :users)
-                        (join :orders (on (:= :users.id :orders.uid))))
-                :dialect (%dialect))
-               'sql-dialect-unsupported)))

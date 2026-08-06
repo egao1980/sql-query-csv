@@ -9,6 +9,7 @@
   :components ((:file "package")
                (:file "csv")
                (:file "catalog")
+               (:file "runtime")
                (:file "compile"))
   :in-order-to ((test-op (test-op "sql-query-csv/tests"))))
 
@@ -17,7 +18,8 @@
   :pathname "tests"
   :serial t
   :components ((:file "package")
-               (:file "csv-test"))
+               (:file "csv-test")
+               (:file "join-group-test"))
   :perform (test-op (o c)
              (unless (symbol-call :rove :run c)
                (error "tests failed for ~A" (component-name c)))))

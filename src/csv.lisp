@@ -73,13 +73,38 @@
                           collect (if coerce-numbers (%maybe-number v) v)))
                   raw)))))
 
-(defun csv-col (row key)
-  "Get column KEY from plist ROW (keyword or symbol/string name)."
-  (let ((k (ctypecase key
-             (keyword key)
-             (symbol (intern (symbol-name key) :keyword))
-             (string (%header-key key)))))
-    (getf row k)))
+(defun %kw (x)
+  (ctypecase x
+    (null nil)
+    (keyword x)
+    (symbol (intern (symbol-name x) :keyword))
+    (string (%header-key x))))
+
+(defun %qualified-key (table col)
+  (intern (format nil "~a.~a"
+                  (string-upcase (ident-string table))
+                  (string-upcase (ident-string col)))
+          :keyword))
+
+(defun csv-col (row key &optional table)
+  "Get column KEY from plist ROW. Optional TABLE → TABLE.KEY (also falls back to bare KEY)."
+  (let ((k (%kw key)))
+    (if table
+        (or (getf row (%qualified-key table k))
+            (getf row k))
+        (or (getf row k)
+            ;; unqualified: prefer bare, else unique qualified *.KEY
+            (let ((suffix (concatenate 'string "." (symbol-name k)))
+                  (found nil)
+                  (ambiguous nil))
+              (loop for (rk rv) on row by #'cddr
+                    for name = (symbol-name rk)
+                    when (and (> (length name) (length suffix))
+                              (string= name suffix :start1 (- (length name) (length suffix))))
+                      do (if found
+                             (setf ambiguous t)
+                             (setf found rv)))
+              (unless ambiguous found))))))
 
 (defun like-match (string pattern)
   "SQL LIKE with % and _ (no ESCAPE)."
