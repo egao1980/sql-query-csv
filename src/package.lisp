@@ -11,6 +11,9 @@
            #:compile-query
            #:compile-query-form
            #:query-csv
-           #:register-csv-table))
+           #:register-csv-table
+           #:find-csv-table
+           #:load-csv-table
+           #:read-csv-file))
 
 (in-package #:sql-query-csv)
