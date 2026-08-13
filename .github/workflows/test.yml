@@ -16,8 +16,6 @@ env:
   CL_REPOSITORY_CLIENT_IMAGE: "ghcr.io/egao1980/cl-repository/cl-repository-client"
   CL_REPOSITORY_CLIENT_VERSION: "latest"
   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-  # Flip to main after sql-query split PR merges.
-  SQL_QUERY_REF: cursor/split-sql-query-backends-3a7a
 
 jobs:
   test:
@@ -31,13 +29,6 @@ jobs:
       packages: read
     steps:
       - uses: actions/checkout@v5
-
-      - name: Checkout sql-query (sibling)
-        uses: actions/checkout@v5
-        with:
-          repository: egao1980/sql-query
-          ref: ${{ env.SQL_QUERY_REF }}
-          path: _deps/sql-query
 
       - uses: oras-project/setup-oras@v2
         with:
@@ -96,11 +87,11 @@ jobs:
       - name: cl-repo install deps
         shell: bash
         run: |
-          export CL_SOURCE_REGISTRY="$(pwd)//:$(pwd)/_deps/sql-query//:$(pwd)/${CL_REPOSITORY_CLIENT_DIR}//:"
+          export CL_SOURCE_REGISTRY="$(pwd)//:$(pwd)/${CL_REPOSITORY_CLIENT_DIR}//:"
           ros -l scripts/ci-install.lisp -q
 
       - name: Test
         shell: bash
         run: |
-          export CL_SOURCE_REGISTRY="$(pwd)//:$(pwd)/_deps/sql-query//:$(pwd)/${CL_REPOSITORY_CLIENT_DIR}//:"
+          export CL_SOURCE_REGISTRY="$(pwd)//:$(pwd)/${CL_REPOSITORY_CLIENT_DIR}//:"
           ros -l scripts/ci-test.lisp -q
