@@ -32,13 +32,13 @@
       (nreverse out))))
 
 (defun %header-key (name)
-  (intern (string-upcase (string-trim '(#\Space #\Tab) name)) :keyword))
+  (intern (string-upcase (string-trim '(#\Space #\Tab #\Return) name)) :keyword))
 
 (defun %maybe-number (s)
   (cond
     ((or (null s) (string= s "")) s)
     (t
-     (let* ((trimmed (string-trim '(#\Space #\Tab) s))
+     (let* ((trimmed (string-trim '(#\Space #\Tab #\Return) s))
             (int (ignore-errors (parse-integer trimmed :junk-allowed nil)))
             (num (unless int
                    (ignore-errors
@@ -53,7 +53,10 @@
                                                  :if-does-not-exist :error)
     (let* ((lines (loop for line = (read-line in nil nil)
                         while line
-                        unless (zerop (length (string-trim '(#\Space #\Tab #\Return) line)))
+                        ;; RFC 4180 records end with CRLF; READ-LINE strips only
+                        ;; the #\Newline, so drop the trailing #\Return here.
+                        do (setf line (string-right-trim '(#\Return) line))
+                        unless (zerop (length (string-trim '(#\Space #\Tab) line)))
                           collect line))
            (raw (mapcar #'%parse-csv-line lines)))
       (unless raw

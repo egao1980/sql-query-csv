@@ -156,6 +156,25 @@
                   :dialect d)))
       (ok (equal '((:id 20 :name "bar,baz")) rows)))))
 
+(deftest csv-crlf-line-endings
+  "RFC 4180 CRLF records: no #\\Return leaks into keys or values (Windows checkouts)."
+  (uiop:with-temporary-file (:pathname path :type "csv")
+    (with-open-file (out path :direction :output :if-exists :supersede)
+      (dolist (line '("id,name,city" "1,ada,London" "2,grace,\"New York\""))
+        (write-string line out)
+        (write-char #\Return out)
+        (write-char #\Linefeed out)))
+    (let ((rows (read-csv-file path)))
+      (ok (equal 2 (length rows)))
+      (ok (equal '(:id :name :city)
+                 (loop for (k nil) on (first rows) by #'cddr collect k))
+          "header keys free of #\\Return")
+      (ok (equal "London" (getf (first rows) :city)))
+      (ok (equal "New York" (getf (second rows) :city))
+          "quoted last field free of #\\Return")
+      (ok (equal '(1 2) (mapcar (lambda (r) (getf r :id)) rows))
+          "numeric coercion unaffected by CRLF"))))
+
 (deftest register-table-and-unknown
   (let ((d (make-csv-dialect)))
     (register-csv-table d :people (%users-rows))
